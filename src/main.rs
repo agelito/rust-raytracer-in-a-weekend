@@ -15,11 +15,11 @@ use scene::{Camera, Scene};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-const WINDOW_WIDTH: usize = 1920;
-const WINDOW_HEIGHT: usize = 1080;
+const WINDOW_WIDTH: usize = 800;
+const WINDOW_HEIGHT: usize = 600;
 
-const CHUNK_WIDTH: usize = 64;
-const CHUNK_HEIGHT: usize = 64;
+const CHUNK_WIDTH: usize = 128;
+const CHUNK_HEIGHT: usize = 128;
 
 pub type SharedBuffer = Arc<Mutex<Vec<u32>>>;
 pub type SharedScene = Arc<Scene>;
@@ -72,7 +72,7 @@ fn main() {
     let from = Vec3::new(13.0, 2.0, 3.0);
     let at = Vec3::new(0.0, 0.0, 0.0);
     let dist = 10.0;
-    let aperture = 0.1;
+    let aperture = 0.0;
 
     let camera = Camera::perspective(
         from,
@@ -86,7 +86,7 @@ fn main() {
 
     let chunks_x = WINDOW_WIDTH / CHUNK_WIDTH;
     let chunks_y = WINDOW_HEIGHT / CHUNK_HEIGHT;
-    let chunks: Vec<Chunk> = (0..(chunks_x * chunks_y))
+    let mut chunks: Vec<Chunk> = (0..(chunks_x * chunks_y))
         .map(|i| Chunk {
             x: (i % chunks_x) * CHUNK_WIDTH,
             y: (i / chunks_x) * CHUNK_HEIGHT,
@@ -95,13 +95,15 @@ fn main() {
         })
         .collect();
 
+    chunks.shuffle(&mut rng);
+
     let job_queue = SegQueue::<RenderJob>::new();
     let job_queue = Arc::new(job_queue);
 
     for chunk in &chunks {
         job_queue.push(RenderJob {
             chunk: *chunk,
-            ms: 1,
+            ms: 4,
         });
     }
 
@@ -116,6 +118,20 @@ fn main() {
         job_queue.push(RenderJob {
             chunk: *chunk,
             ms: 128,
+        });
+    }
+
+    for chunk in &chunks {
+        job_queue.push(RenderJob {
+            chunk: *chunk,
+            ms: 256,
+        });
+    }
+
+    for chunk in &chunks {
+        job_queue.push(RenderJob {
+            chunk: *chunk,
+            ms: 512,
         });
     }
 
@@ -183,8 +199,8 @@ fn random_spheres(rng: &mut dyn RngCore) -> Vec<Object> {
         }),
     }));
 
-    for a in -11..11 {
-        for b in -11..11 {
+    for a in -4..4 {
+        for b in -4..4 {
             let material_rng: f32 = rng.gen();
             let center = Vec3::new(
                 (a as f64) + 0.9 * rng.gen::<f64>(),
