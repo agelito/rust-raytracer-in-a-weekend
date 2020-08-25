@@ -12,6 +12,10 @@ impl Vec3 {
         Vec3 { x: x, y: y, z: z }
     }
 
+    pub fn new_xyz(v: f64) -> Vec3 {
+        Vec3 { x: v, y: v, z: v }
+    }
+
     pub fn zero() -> Vec3 {
         return Vec3 {
             x: 0.0,
@@ -194,5 +198,35 @@ impl Neg for Vec3 {
             y: -self.y,
             z: -self.z,
         }
+    }
+}
+
+impl IntoIterator for Vec3 {
+    type Item = f64;
+    type IntoIter = Vec3IntoIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Vec3IntoIterator { v: self, index: 0 }
+    }
+}
+
+pub struct Vec3IntoIterator {
+    v: Vec3,
+    index: usize,
+}
+
+impl Iterator for Vec3IntoIterator {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<f64> {
+        let result = match self.index {
+            0 => self.v.x,
+            1 => self.v.y,
+            2 => self.v.z,
+            _ => return None,
+        };
+
+        self.index += 1;
+        Some(result)
     }
 }

@@ -8,15 +8,15 @@ use color::Color;
 use crossbeam_queue::SegQueue;
 use math::Vec3;
 use minifb::{Key, Window, WindowOptions};
-use objects::{Object, Sphere};
+use objects::{MovingSphere, Object, Sphere};
 use rand::prelude::*;
 use renderer::{Dialectric, Lambertian, Material, Metal};
 use scene::{Camera, Scene};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-const WINDOW_WIDTH: usize = 800;
-const WINDOW_HEIGHT: usize = 600;
+const WINDOW_WIDTH: usize = 512;
+const WINDOW_HEIGHT: usize = 512;
 
 const CHUNK_WIDTH: usize = 128;
 const CHUNK_HEIGHT: usize = 128;
@@ -49,7 +49,7 @@ fn main() {
         WindowOptions {
             borderless: false,
             resize: true,
-            scale: minifb::Scale::X2,
+            scale: minifb::Scale::X1,
             scale_mode: minifb::ScaleMode::AspectRatioStretch,
             title: true,
             topmost: false,
@@ -62,10 +62,7 @@ fn main() {
 
     let mut rng = rand::thread_rng();
 
-    let scene = Scene {
-        max_recursion: 32,
-        objects: random_spheres(&mut rng),
-    };
+    let scene = Scene::create_with_bvh(&random_spheres(&mut rng), 32);
     let scene = Arc::new(scene);
 
     let aspect = (WINDOW_WIDTH as f64) / (WINDOW_HEIGHT as f64);
@@ -74,7 +71,7 @@ fn main() {
     let dist = 10.0;
     let aperture = 0.0;
 
-    let camera = Camera::perspective(
+    let camera = Camera::perspective_with_time(
         from,
         at,
         Vec3::new(0.0, 1.0, 0.0),
@@ -82,6 +79,8 @@ fn main() {
         aspect,
         aperture,
         dist,
+        0.0,
+        1.0,
     );
 
     let chunks_x = WINDOW_WIDTH / CHUNK_WIDTH;
@@ -197,10 +196,11 @@ fn random_spheres(rng: &mut dyn RngCore) -> Vec<Object> {
         material: Material::Lambertian(Lambertian {
             albedo: Color::new(0.5, 0.5, 0.5, 1.0),
         }),
+        node_index: 0,
     }));
 
-    for a in -4..4 {
-        for b in -4..4 {
+    for a in -11..11 {
+        for b in -11..11 {
             let material_rng: f32 = rng.gen();
             let center = Vec3::new(
                 (a as f64) + 0.9 * rng.gen::<f64>(),
@@ -231,11 +231,26 @@ fn random_spheres(rng: &mut dyn RngCore) -> Vec<Object> {
                 } else {
                     Material::Dialectric(Dialectric { index: 1.5 })
                 };
-                result.push(Object::Sphere(Sphere {
-                    center: center,
-                    radius: 0.2,
-                    material: material,
-                }));
+
+                let type_rng: f32 = rng.gen();
+                if type_rng < 0.7 {
+                    result.push(Object::Sphere(Sphere {
+                        center: center,
+                        radius: 0.2,
+                        material: material,
+                        node_index: 0,
+                    }));
+                } else {
+                    result.push(Object::MovingSphere(MovingSphere {
+                        center0: center,
+                        center1: center + Vec3::new(0.0, 0.5 * rng.gen::<f64>(), 0.0),
+                        time0: 0.0,
+                        time1: 1.0,
+                        radius: 0.2,
+                        material: material,
+                        node_index: 0,
+                    }));
+                }
             };
         }
     }
@@ -244,6 +259,7 @@ fn random_spheres(rng: &mut dyn RngCore) -> Vec<Object> {
         center: Vec3::new(0.0, 1.0, 0.0),
         radius: 1.0,
         material: Material::Dialectric(Dialectric { index: 1.5 }),
+        node_index: 0,
     }));
 
     result.push(Object::Sphere(Sphere {
@@ -252,6 +268,7 @@ fn random_spheres(rng: &mut dyn RngCore) -> Vec<Object> {
         material: Material::Lambertian(Lambertian {
             albedo: Color::new(0.4, 0.2, 0.1, 1.0),
         }),
+        node_index: 0,
     }));
 
     result.push(Object::Sphere(Sphere {
@@ -261,6 +278,7 @@ fn random_spheres(rng: &mut dyn RngCore) -> Vec<Object> {
             albedo: Color::new(0.7, 0.6, 0.5, 1.0),
             fuzz: 0.0,
         }),
+        node_index: 0,
     }));
 
     result

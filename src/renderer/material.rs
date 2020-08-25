@@ -29,12 +29,16 @@ pub struct Lambertian {
 impl Lambertian {
     pub fn scatter(
         &self,
-        _ray: &Ray,
+        ray: &Ray,
         intersection: &Intersection,
         rng: &mut dyn RngCore,
     ) -> Option<(Color, Ray)> {
         let target = intersection.position + intersection.normal + random_unit_sphere(rng);
-        let scattered = Ray::new(intersection.position, target - intersection.position);
+        let scattered = Ray::at_time(
+            intersection.position,
+            target - intersection.position,
+            ray.time,
+        );
 
         Some((self.albedo, scattered))
     }
@@ -61,9 +65,10 @@ impl Metal {
         rng: &mut dyn RngCore,
     ) -> Option<(Color, Ray)> {
         let reflection = Vec3::reflect(&ray.direction.normalize(), &intersection.normal);
-        let scattered = Ray::new(
+        let scattered = Ray::at_time(
             intersection.position,
             reflection + self.fuzz * random_unit_sphere(rng),
+            ray.time,
         );
 
         if Vec3::dot(&scattered.direction, &intersection.normal) > 0.0 {
@@ -111,12 +116,21 @@ impl Dialectric {
                 {
                     let prob = schlick(cosine, self.index);
                     if rng.gen::<f64>() < prob {
-                        Some((attenuation, Ray::new(intersection.position, reflected)))
+                        Some((
+                            attenuation,
+                            Ray::at_time(intersection.position, reflected, ray.time),
+                        ))
                     } else {
-                        Some((attenuation, Ray::new(intersection.position, refracted)))
+                        Some((
+                            attenuation,
+                            Ray::at_time(intersection.position, refracted, ray.time),
+                        ))
                     }
                 } else {
-                    Some((attenuation, Ray::new(intersection.position, reflected)))
+                    Some((
+                        attenuation,
+                        Ray::at_time(intersection.position, reflected, ray.time),
+                    ))
                 }
             }
         }

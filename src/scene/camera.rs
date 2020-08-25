@@ -12,6 +12,9 @@ pub struct Camera {
     v: Vec3,
 
     lens_radius: f64,
+
+    time0: f64,
+    time1: f64,
 }
 
 fn random_in_unit_disk(rng: &mut dyn RngCore) -> Vec3 {
@@ -25,7 +28,7 @@ fn random_in_unit_disk(rng: &mut dyn RngCore) -> Vec3 {
 }
 
 impl Camera {
-    pub fn perspective(
+    pub fn perspective_with_time(
         from: Vec3,
         at: Vec3,
         up: Vec3,
@@ -33,6 +36,8 @@ impl Camera {
         aspect: f64,
         aperture: f64,
         focus_dist: f64,
+        time0: f64,
+        time1: f64,
     ) -> Camera {
         let u: Vec3;
         let v: Vec3;
@@ -56,15 +61,31 @@ impl Camera {
             u: u,
             v: v,
             lens_radius: aperture / 2.0,
+            time0: time0,
+            time1: time1,
         }
+    }
+
+    pub fn perspective(
+        from: Vec3,
+        at: Vec3,
+        up: Vec3,
+        vfov: f64,
+        aspect: f64,
+        aperture: f64,
+        focus_dist: f64,
+    ) -> Camera {
+        Camera::perspective_with_time(from, at, up, vfov, aspect, aperture, focus_dist, 0.0, 0.0)
     }
 
     pub fn get_ray(&self, s: f32, t: f32, rng: &mut dyn RngCore) -> Ray {
         let rd = self.lens_radius * random_in_unit_disk(rng);
         let offset = self.u * rd.x + self.v * rd.y;
-        Ray::new(
+        let time = self.time0 + rng.gen::<f64>() * (self.time1 - self.time0);
+        Ray::at_time(
             self.origin + offset,
             self.lower_left + s * self.horizontal + t * self.vertical - self.origin - offset,
+            time,
         )
     }
 }
